@@ -2,6 +2,7 @@ import io
 import os
 import streamlit as st
 import pickle
+import sqlite3
 
 from google_auth_oauthlib.flow import Flow
 from google.auth.transport.requests import Request
@@ -79,8 +80,9 @@ except Exception as e:
 
 # === FUNÇÕES DE UPLOAD E DOWNLOAD ===
 def get_folder_id():
-    """Obtém o ID da pasta 'banco-coeso' no Google Drive"""
+    """Obtém ou cria a pasta 'banco-coeso' no Google Drive"""
     try:
+        # Primeiro tenta encontrar a pasta
         results = service.files().list(
             q=f"name='{FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false",
             spaces='drive',
@@ -88,11 +90,21 @@ def get_folder_id():
             pageSize=1
         ).execute()
         folders = results.get('files', [])
-        if not folders:
-            raise FileNotFoundError(f"Pasta '{FOLDER_NAME}' não encontrada.")
-        return folders[0]['id']
+        
+        if folders:
+            return folders[0]['id']
+        else:
+            # Se não encontrar, cria a pasta
+            file_metadata = {
+                'name': FOLDER_NAME,
+                'mimeType': 'application/vnd.google-apps.folder'
+            }
+            folder = service.files().create(body=file_metadata, fields='id').execute()
+            st.success(f"Pasta '{FOLDER_NAME}' criada com sucesso no Google Drive!")
+            return folder['id']
+            
     except HttpError as error:
-        st.error(f"Erro ao buscar pasta: {error}")
+        st.error(f"Erro ao buscar/criar pasta: {error}")
         raise
     except Exception as e:
         st.error(f"Erro inesperado: {str(e)}")
@@ -100,9 +112,12 @@ def get_folder_id():
 
 
 def download_db_from_drive():
-    """Faz download do banco de dados do Google Drive"""
+    """Faz download do banco de dados do Google Drive ou cria um novo se não existir"""
     try:
+        # Primeiro garante que a pasta existe
         folder_id = get_folder_id()
+        
+        # Depois procura o arquivo
         results = service.files().list(
             q=f"name='{DB_FILENAME}' and '{folder_id}' in parents and trashed=false",
             spaces='drive',
@@ -110,9 +125,14 @@ def download_db_from_drive():
             pageSize=1
         ).execute()
         files = results.get('files', [])
+        
         if not files:
-            st.warning(f"Arquivo {DB_FILENAME} não encontrado.")
+            # Se não encontrar o arquivo, cria um banco de dados vazio local
+            conn = sqlite3.connect(DB_FILENAME)
+            conn.close()
+            st.warning(f"Arquivo {DB_FILENAME} não encontrado no Drive. Criado novo banco local.")
             return False
+            
         file_id = files[0]['id']
         request = service.files().get_media(fileId=file_id)
         with io.FileIO(DB_FILENAME, 'wb') as fh:
@@ -121,6 +141,7 @@ def download_db_from_drive():
             while not done:
                 _, done = downloader.next_chunk()
         return True
+        
     except HttpError as error:
         st.error(f"Erro ao baixar arquivo: {error}")
         return False
