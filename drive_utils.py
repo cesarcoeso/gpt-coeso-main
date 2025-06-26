@@ -3,49 +3,81 @@ import os
 import streamlit as st
 import pickle
 
-from google_auth_oauthlib.flow import InstalledAppFlow
+from google_auth_oauthlib.flow import Flow
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload, MediaFileUpload
 from googleapiclient.errors import HttpError
 
-# === CONFIGURAÇÃO ===
+# === CONFIGURAÇÕES ===
 FOLDER_NAME = "banco-coeso"
 DB_FILENAME = "auth.db"
-SCOPES = ['https://www.googleapis.com/auth/drive.file']  # Permissão básica para leitura/escrita
+SCOPES = ['https://www.googleapis.com/auth/drive.file']
+TOKEN_FILE = "token_drive.pkl"
 
-# === AUTENTICAÇÃO COM OAUTH ===
+
 @st.cache_resource
 def get_drive_service():
     creds = None
-    token_path = "token_drive.pkl"
-    
-    # Usa token salvo (login já feito anteriormente)
-    if os.path.exists(token_path):
-        with open(token_path, 'rb') as token:
+
+    # Verifica se já existe token salvo em sessão
+    if "token_drive" in st.session_state:
+        creds = st.session_state["token_drive"]
+
+    # Ou token salvo em disco (útil no desenvolvimento local)
+    elif os.path.exists(TOKEN_FILE):
+        with open(TOKEN_FILE, "rb") as token:
             creds = pickle.load(token)
 
-    # Se não tiver credenciais válidas, faz login
+    # Se não houver token válido, inicia fluxo de autenticação
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                'client_secrets.json', SCOPES)
-            creds = flow.run_local_server(port=0)
-        # Salva o token para uso futuro
-        with open(token_path, 'wb') as token:
-            pickle.dump(creds, token)
-    
+            # Configurações do secrets.toml
+            client_config = {
+                "installed": {
+                    "client_id": st.secrets["gdrive_oauth"]["client_id"],
+                    "client_secret": st.secrets["gdrive_oauth"]["client_secret"],
+                    "auth_uri": st.secrets["gdrive_oauth"]["auth_uri"],
+                    "token_uri": st.secrets["gdrive_oauth"]["token_uri"],
+                    "redirect_uris": ["urn:ietf:wg:oauth:2.0:oob"]
+                }
+            }
+
+            flow = Flow.from_client_config(client_config, SCOPES)
+            flow.redirect_uri = "urn:ietf:wg:oauth:2.0:oob"
+
+            auth_url, _ = flow.authorization_url(prompt='consent')
+            st.markdown(f"🔐 [Clique aqui para autorizar o app com sua conta Google]({auth_url})")
+            auth_code = st.text_input("👉 Após autorizar, cole aqui o código:")
+
+            if not auth_code:
+                st.stop()
+
+            try:
+                flow.fetch_token(code=auth_code)
+                creds = flow.credentials
+                st.session_state["token_drive"] = creds
+                # Opcional: salva em disco também
+                with open(TOKEN_FILE, "wb") as token:
+                    pickle.dump(creds, token)
+            except Exception as e:
+                st.error(f"Erro ao autenticar com o Google: {e}")
+                st.stop()
+
     return build("drive", "v3", credentials=creds)
 
-# Instancia o serviço
+
+# === INSTANCIA O SERVIÇO ===
 try:
     service = get_drive_service()
 except Exception as e:
     st.error(f"Erro na autenticação do Google Drive: {str(e)}")
     raise
 
+
+# === FUNÇÕES DE UPLOAD E DOWNLOAD ===
 def get_folder_id():
     """Obtém o ID da pasta 'banco-coeso' no Google Drive"""
     try:
@@ -66,7 +98,9 @@ def get_folder_id():
         st.error(f"Erro inesperado: {str(e)}")
         raise
 
+
 def download_db_from_drive():
+    """Faz download do banco de dados do Google Drive"""
     try:
         folder_id = get_folder_id()
         results = service.files().list(
@@ -94,7 +128,9 @@ def download_db_from_drive():
         st.error(f"Erro inesperado: {str(e)}")
         return False
 
+
 def upload_db_to_drive():
+    """Faz upload do banco de dados para o Google Drive"""
     try:
         folder_id = get_folder_id()
         results = service.files().list(
