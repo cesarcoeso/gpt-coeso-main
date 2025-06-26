@@ -1,6 +1,10 @@
 import io
+import os
 import streamlit as st
-from google.oauth2 import service_account
+import pickle
+
+from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload, MediaFileUpload
 from googleapiclient.errors import HttpError
@@ -8,48 +12,53 @@ from googleapiclient.errors import HttpError
 # === CONFIGURAÇÃO ===
 FOLDER_NAME = "banco-coeso"
 DB_FILENAME = "auth.db"
+SCOPES = ['https://www.googleapis.com/auth/drive.file']  # Permissão básica para leitura/escrita
 
-# === AUTENTICAÇÃO ===
-try:
-    # Carrega as credenciais do secrets.toml
-    SERVICE_ACCOUNT_INFO = {
-        "type": st.secrets["gdrive_service_account"]["type"],
-        "project_id": st.secrets["gdrive_service_account"]["project_id"],
-        "private_key_id": st.secrets["gdrive_service_account"]["private_key_id"],
-        "private_key": st.secrets["gdrive_service_account"]["private_key"].replace('\\n', '\n'),
-        "client_email": st.secrets["gdrive_service_account"]["client_email"],
-        "token_uri": st.secrets["gdrive_service_account"]["token_uri"]
-    }
+# === AUTENTICAÇÃO COM OAUTH ===
+@st.cache_resource
+def get_drive_service():
+    creds = None
+    token_path = "token_drive.pkl"
     
-    SCOPES = ["https://www.googleapis.com/auth/drive"]
-    credentials = service_account.Credentials.from_service_account_info(
-        SERVICE_ACCOUNT_INFO, scopes=SCOPES)
-    service = build("drive", "v3", credentials=credentials)
+    # Usa token salvo (login já feito anteriormente)
+    if os.path.exists(token_path):
+        with open(token_path, 'rb') as token:
+            creds = pickle.load(token)
 
+    # Se não tiver credenciais válidas, faz login
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file(
+                'client_secrets.json', SCOPES)
+            creds = flow.run_local_server(port=0)
+        # Salva o token para uso futuro
+        with open(token_path, 'wb') as token:
+            pickle.dump(creds, token)
+    
+    return build("drive", "v3", credentials=creds)
+
+# Instancia o serviço
+try:
+    service = get_drive_service()
 except Exception as e:
-    st.error(f"Erro ao carregar credenciais do Google Drive: {str(e)}")
+    st.error(f"Erro na autenticação do Google Drive: {str(e)}")
     raise
 
 def get_folder_id():
-    """Obtém o ID da pasta 'banco-coeso' no Google Drive pessoal"""
+    """Obtém o ID da pasta 'banco-coeso' no Google Drive"""
     try:
-        # Primeiro verifica se a service account tem acesso à pasta
         results = service.files().list(
             q=f"name='{FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false",
             spaces='drive',
             fields="files(id, name)",
             pageSize=1
         ).execute()
-        
         folders = results.get('files', [])
-        
         if not folders:
-            raise FileNotFoundError(
-                f"Pasta '{FOLDER_NAME}' não encontrada. "
-                f"Certifique-se que a pasta existe e está compartilhada com: {SERVICE_ACCOUNT_INFO['client_email']}"
-            )
+            raise FileNotFoundError(f"Pasta '{FOLDER_NAME}' não encontrada.")
         return folders[0]['id']
-        
     except HttpError as error:
         st.error(f"Erro ao buscar pasta: {error}")
         raise
@@ -58,34 +67,26 @@ def get_folder_id():
         raise
 
 def download_db_from_drive():
-    """Faz download do banco de dados do Google Drive"""
     try:
         folder_id = get_folder_id()
-        
-        # Busca o arquivo na pasta específica
         results = service.files().list(
             q=f"name='{DB_FILENAME}' and '{folder_id}' in parents and trashed=false",
             spaces='drive',
             fields="files(id, name)",
             pageSize=1
         ).execute()
-        
         files = results.get('files', [])
-        
         if not files:
-            st.warning(f"Arquivo {DB_FILENAME} não encontrado na pasta.")
+            st.warning(f"Arquivo {DB_FILENAME} não encontrado.")
             return False
-            
         file_id = files[0]['id']
         request = service.files().get_media(fileId=file_id)
-        
         with io.FileIO(DB_FILENAME, 'wb') as fh:
             downloader = MediaIoBaseDownload(fh, request)
             done = False
             while not done:
                 _, done = downloader.next_chunk()
         return True
-        
     except HttpError as error:
         st.error(f"Erro ao baixar arquivo: {error}")
         return False
@@ -94,41 +95,23 @@ def download_db_from_drive():
         return False
 
 def upload_db_to_drive():
-    """Faz upload do banco de dados para o Google Drive"""
     try:
         folder_id = get_folder_id()
-        
-        # Verifica se o arquivo já existe
         results = service.files().list(
             q=f"name='{DB_FILENAME}' and '{folder_id}' in parents and trashed=false",
             spaces='drive',
             fields="files(id, name)",
             pageSize=1
         ).execute()
-        
         files = results.get('files', [])
-        file_metadata = {
-            'name': DB_FILENAME,
-            'parents': [folder_id]
-        }
+        file_metadata = {'name': DB_FILENAME, 'parents': [folder_id]}
         media = MediaFileUpload(DB_FILENAME, mimetype='application/x-sqlite3')
-        
         if files:
-            # Atualiza arquivo existente
             file_id = files[0]['id']
-            service.files().update(
-                fileId=file_id,
-                media_body=media
-            ).execute()
+            service.files().update(fileId=file_id, media_body=media).execute()
         else:
-            # Cria novo arquivo
-            service.files().create(
-                body=file_metadata,
-                media_body=media,
-                fields='id'
-            ).execute()
+            service.files().create(body=file_metadata, media_body=media, fields='id').execute()
         return True
-        
     except HttpError as error:
         st.error(f"Erro ao enviar arquivo: {error}")
         return False
