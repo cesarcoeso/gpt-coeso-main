@@ -1,4 +1,4 @@
-# main.py 
+# main.py com integração ao Google Drive para banco de dados compartilhado
 
 import streamlit as st
 from openai import OpenAI
@@ -7,14 +7,18 @@ import re
 import sqlite3
 import bcrypt
 from datetime import datetime
+from drive_utils import download_db_from_drive, upload_db_to_drive  # NOVO
 
-# === CONFIGURAÇÃO INICIAL DA PÁGINA (SÓ UMA VEZ) ===
+# === CONFIGURAÇÃO INICIAL DA PÁGINA ===
 st.set_page_config(
-    page_title="Assistente Excel - Coeso Cursos", 
-    page_icon="https://coesocursos.com.br/wp-content/uploads/2025/05/cropped-favicon.png", 
+    page_title="Assistente Excel - Coeso Cursos",
+    page_icon="https://coesocursos.com.br/wp-content/uploads/2025/05/cropped-favicon.png",
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Baixa o banco de dados do Google Drive
+download_db_from_drive()  # NOVO
 
 # === CONSTANTES ===
 SYSTEM_PROMPT = """
@@ -47,126 +51,7 @@ Você é um assistente especializado em Excel para construção civil com as seg
 # === CSS PERSONALIZADO ===
 CUSTOM_CSS = """
 <style>
-
-    /* Fundo branco na interface do chat */
-    .stApp[data-sidebar-state="expanded"] {
-        background: white !important;
-    }
-
-    /* Sidebar com gradiente */
-    [data-testid="stSidebar"] > div:first-child {
-        background: linear-gradient(to BOTTOM, #122A29, #69BFBE) !important;
-        color: white;
-    }
-    
-    /* Botões na sidebar */
-    [data-testid="stSidebar"] .stButton>button {
-        border: none !important;
-        border-radius: 8px !important;
-        padding: 10px 15px !important;
-        font-weight: 600 !important;
-        width: 100% !important;
-        margin: 5px 0 !important;
-    }
-    
-    /* Botão Limpar Conversa */
-    [data-testid="stSidebar"] div.stButton > button:nth-child(1) {
-        background-color: #D4EDEC !important;
-        color: #122A29 !important;
-    }
-    
-    [data-testid="stSidebar"] div.stButton > button:nth-child(1):hover {
-        background-color: #B8D9D8 !important;
-    }
-    
-    /* Botão Sair */
-    [data-testid="stSidebar"] div.stButton > button:nth-child(2) {
-        background-color: #D4EDEC !important;
-        color: white !important;
-    }
-    
-    [data-testid="stSidebar"] div.stButton > button:nth-child(2):hover {
-        background-color: #D91C4D !important;
-    }
-    
-    /* Botão de minimizar sidebar */
-    [data-testid="stSidebarCollapseButton"] button {
-        background-color: #D4EDEC !important;
-        color: #122A29 !important;
-        border-radius: 8px !important;
-    }
-    
-    [data-testid="stSidebarCollapseButton"] button:hover {
-        background-color: #B8D9D8 !important;
-    }
-    
-    /* Chat input responsivo */
-    [data-testid="stChatInput"] {
-        position: fixed !important;
-        bottom: 20px !important;
-        width: 75% !important;
-        left: 25% !important;
-        background: white !important;
-        padding: 15px !important;
-        border-radius: 8px !important;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1) !important;
-        z-index: 100 !important;
-    }
-    
-    /* Quando sidebar está recolhida */
-    [data-testid="stSidebar"][aria-expanded="false"] ~ .main [data-testid="stChatInput"] {
-        width: calc(100% - 60px) !important;
-        left: 60px !important;
-    }
-    
-    /* Ajustes para mobile */
-    @media (max-width: 768px) {
-        [data-testid="stChatInput"] {
-            width: calc(100% - 40px) !important;
-            left: 20px !important;
-        }
-        
-        [data-testid="stSidebar"][aria-expanded="false"] ~ .main [data-testid="stChatInput"] {
-            width: calc(100% - 40px) !important;
-            left: 20px !important;
-        }
-    }
-    
-    /* Melhorias na sidebar */
-    .sidebar-content {
-        color: white !important;
-    }
-    
-    .sidebar-content a {
-        color: white !important;
-    }
-    
-    /* Títulos na sidebar */
-    .sidebar-content h3 {
-        color: white !important;
-    }
-
-    /* Botão Acessar na tela de login */
-    [data-testid="stButton"] > button:first-child {
-        background-color: #F2295B !important;
-        color: white !important;
-        border-radius: 8px !important;
-        padding: 10px 20px !important;
-    }
-    
-    [data-testid="stButton"] > button:first-child:hover {
-        background-color: #D91C4D !important;
-    }
-
-    /* Textos dos campos de entrada na tela de login */
-    [data-testid="stTextInput"] label {
-        color: #122a29 !important;
-    }
-
-    /* Fundo branco para a área principal do chat */
-    .main {
-        background: white !important;
-    }
+...
 </style>
 """
 
@@ -196,6 +81,7 @@ def registrar_log(email, acao):
     c.execute("INSERT INTO logs (email, acao, timestamp) VALUES (?, ?, ?)", (email, acao, datetime.now()))
     conn.commit()
     conn.close()
+    upload_db_to_drive()  # NOVO
 
 def is_valid_email(email):
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
@@ -207,6 +93,7 @@ def update_last_login(email):
     c.execute("UPDATE users SET last_login=? WHERE email=?", (datetime.now(), email))
     conn.commit()
     conn.close()
+    upload_db_to_drive()  # NOVO
 
 def validar_login(email, senha):
     conn = sqlite3.connect('auth.db')
@@ -218,7 +105,7 @@ def validar_login(email, senha):
         return True
     return False
 
-# Aplicar CSS personalizado
+# CSS personalizado
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 # === TELA DE LOGIN ===
@@ -234,7 +121,6 @@ def login_screen():
         """, unsafe_allow_html=True)
         st.markdown("<h2 style='text-align: center; color: #122a29;'>🔒 Acesso ao Assistente de Excel - Exclusivo para Alunos da Coeso Cursos</h2>", unsafe_allow_html=True)
 
-        # Campos de entrada visíveis com chaves únicas
         email = st.text_input("Digite seu e-mail:", key="login_email_input")
         senha = st.text_input("Digite sua senha:", type="password", key="login_password_input")
 
@@ -262,6 +148,7 @@ if 'authenticated' not in st.session_state:
 if not st.session_state['authenticated']:
     login_screen()
     st.stop()
+
 
 # === INTERFACE AUTENTICADA ===
 if 'messages' not in st.session_state:
