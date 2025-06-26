@@ -53,7 +53,13 @@ Você é um assistente especializado em Excel para construção civil com as seg
 # === CSS PERSONALIZADO ===
 CUSTOM_CSS = """
 <style>
-...
+
+    /* Sidebar com gradiente */
+    [data-testid="stSidebar"] > div:first-child {
+        background: linear-gradient(to BOTTOM, #122A29, #69BFBE) !important;
+        color: white;
+    }
+
 </style>
 """
 
