@@ -1,4 +1,4 @@
-# painel_admin.py com log de atividades (Etapa 3) e Dashboard
+# painel_admin.py com integração ao Google Drive (compartilhado com main.py)
 
 import streamlit as st
 import sqlite3
@@ -8,11 +8,13 @@ import bcrypt
 from datetime import datetime, timedelta
 import io
 import plotly.express as px
+from drive_utils import download_db_from_drive, upload_db_to_drive  # NOVO
 
 DB_NAME = 'auth.db'
 
 # === BANCO DE DADOS ===
 def init_db():
+    download_db_from_drive()  # NOVO
     conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
     # Tabela de usuários
@@ -39,6 +41,7 @@ def registrar_log(email, acao):
     c.execute("INSERT INTO logs (email, acao, timestamp) VALUES (?, ?, ?)", (email, acao, datetime.now()))
     conn.commit()
     conn.close()
+    upload_db_to_drive()  # NOVO
 
 def is_valid_email(email):
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
@@ -69,6 +72,7 @@ def register_user(email, senha):
     conn.close()
 
     registrar_log(email, "Cadastro")
+    upload_db_to_drive()  # NOVO
     return True, "✅ Usuário cadastrado com sucesso."
 
 def get_all_users():
@@ -84,6 +88,7 @@ def delete_user(email):
     conn.commit()
     conn.close()
     registrar_log(email, "Remoção")
+    upload_db_to_drive()  # NOVO
 
 def get_all_emails():
     conn = sqlite3.connect(DB_NAME)
@@ -109,44 +114,30 @@ def get_logs():
 
 def get_user_stats():
     conn = sqlite3.connect(DB_NAME)
-    
-    # Total de usuários
     total_users = pd.read_sql_query("SELECT COUNT(*) as total FROM users", conn).iloc[0,0]
-    
-    # Total de logins (considerando logs de login)
     total_logins = pd.read_sql_query("SELECT COUNT(*) as total FROM logs WHERE acao LIKE '%Login%'", conn).iloc[0,0]
-    
-    # Logins últimos 7 dias
     seven_days_ago = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d %H:%M:%S')
     logins_last_7_days = pd.read_sql_query(
-        f"SELECT COUNT(*) as total FROM logs WHERE acao LIKE '%Login%' AND timestamp >= '{seven_days_ago}'", 
+        f"SELECT COUNT(*) as total FROM logs WHERE acao LIKE '%Login%' AND timestamp >= '{seven_days_ago}'",
         conn
     ).iloc[0,0]
-    
-    # Últimos 5 usuários cadastrados
     last_registered = pd.read_sql_query(
-        "SELECT email, created_at FROM users ORDER BY created_at DESC LIMIT 5", 
+        "SELECT email, created_at FROM users ORDER BY created_at DESC LIMIT 5",
         conn
     )
-    
-    # Últimos 5 acessos
     last_logins = pd.read_sql_query(
-        "SELECT email, last_login FROM users ORDER BY last_login DESC LIMIT 5", 
+        "SELECT email, last_login FROM users ORDER BY last_login DESC LIMIT 5",
         conn
     )
-    
-    # Logins por dia (para gráfico)
     logins_by_day = pd.read_sql_query(
         f"""SELECT date(timestamp) as dia, COUNT(*) as total 
             FROM logs 
             WHERE acao LIKE '%Login%' AND timestamp >= '{seven_days_ago}'
             GROUP BY dia
-            ORDER BY dia""", 
+            ORDER BY dia""",
         conn
     )
-    
     conn.close()
-    
     return {
         'total_users': total_users,
         'total_logins': total_logins,
@@ -155,6 +146,7 @@ def get_user_stats():
         'last_logins': last_logins,
         'logins_by_day': logins_by_day
     }
+
 
 # === AUTENTICAÇÃO ===
 def autenticar_admin():
