@@ -51,7 +51,126 @@ Você é um assistente especializado em Excel para construção civil com as seg
 # === CSS PERSONALIZADO ===
 CUSTOM_CSS = """
 <style>
-...
+
+    /* Fundo branco na interface do chat */
+    .stApp[data-sidebar-state="expanded"] {
+        background: white !important;
+    }
+
+    /* Sidebar com gradiente */
+    [data-testid="stSidebar"] > div:first-child {
+        background: linear-gradient(to BOTTOM, #122A29, #69BFBE) !important;
+        color: white;
+    }
+    
+    /* Botões na sidebar */
+    [data-testid="stSidebar"] .stButton>button {
+        border: none !important;
+        border-radius: 8px !important;
+        padding: 10px 15px !important;
+        font-weight: 600 !important;
+        width: 100% !important;
+        margin: 5px 0 !important;
+    }
+    
+    /* Botão Limpar Conversa */
+    [data-testid="stSidebar"] div.stButton > button:nth-child(1) {
+        background-color: #D4EDEC !important;
+        color: #122A29 !important;
+    }
+    
+    [data-testid="stSidebar"] div.stButton > button:nth-child(1):hover {
+        background-color: #B8D9D8 !important;
+    }
+    
+    /* Botão Sair */
+    [data-testid="stSidebar"] div.stButton > button:nth-child(2) {
+        background-color: #D4EDEC !important;
+        color: white !important;
+    }
+    
+    [data-testid="stSidebar"] div.stButton > button:nth-child(2):hover {
+        background-color: #D91C4D !important;
+    }
+    
+    /* Botão de minimizar sidebar */
+    [data-testid="stSidebarCollapseButton"] button {
+        background-color: #D4EDEC !important;
+        color: #122A29 !important;
+        border-radius: 8px !important;
+    }
+    
+    [data-testid="stSidebarCollapseButton"] button:hover {
+        background-color: #B8D9D8 !important;
+    }
+    
+    /* Chat input responsivo */
+    [data-testid="stChatInput"] {
+        position: fixed !important;
+        bottom: 20px !important;
+        width: 75% !important;
+        left: 25% !important;
+        background: white !important;
+        padding: 15px !important;
+        border-radius: 8px !important;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1) !important;
+        z-index: 100 !important;
+    }
+    
+    /* Quando sidebar está recolhida */
+    [data-testid="stSidebar"][aria-expanded="false"] ~ .main [data-testid="stChatInput"] {
+        width: calc(100% - 60px) !important;
+        left: 60px !important;
+    }
+    
+    /* Ajustes para mobile */
+    @media (max-width: 768px) {
+        [data-testid="stChatInput"] {
+            width: calc(100% - 40px) !important;
+            left: 20px !important;
+        }
+        
+        [data-testid="stSidebar"][aria-expanded="false"] ~ .main [data-testid="stChatInput"] {
+            width: calc(100% - 40px) !important;
+            left: 20px !important;
+        }
+    }
+    
+    /* Melhorias na sidebar */
+    .sidebar-content {
+        color: white !important;
+    }
+    
+    .sidebar-content a {
+        color: white !important;
+    }
+    
+    /* Títulos na sidebar */
+    .sidebar-content h3 {
+        color: white !important;
+    }
+
+    /* Botão Acessar na tela de login */
+    [data-testid="stButton"] > button:first-child {
+        background-color: #F2295B !important;
+        color: white !important;
+        border-radius: 8px !important;
+        padding: 10px 20px !important;
+    }
+    
+    [data-testid="stButton"] > button:first-child:hover {
+        background-color: #D91C4D !important;
+    }
+
+    /* Textos dos campos de entrada na tela de login */
+    [data-testid="stTextInput"] label {
+        color: #122a29 !important;
+    }
+
+    /* Fundo branco para a área principal do chat */
+    .main {
+        background: white !important;
+    }
 </style>
 """
 
