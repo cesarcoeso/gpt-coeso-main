@@ -8,6 +8,8 @@ import sqlite3
 import bcrypt
 from datetime import datetime
 from drive_utils import download_db_from_drive, upload_db_to_drive  # NOVO
+import os
+os.environ['PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION'] = 'python'
 
 # === CONFIGURAÇÃO INICIAL DA PÁGINA ===
 st.set_page_config(
