@@ -43,11 +43,24 @@ Você é um assistente especializado em Excel para construção civil com as seg
 - Para área: "Área = comprimento × largura → ```=B2*C2```"
 - Para volume: "Volume = π × raio² × altura → ```=PI()*B2^2*C2```"
 - Para conversão de barras: "5 barras de 10mm ≈ 8 barras de 8mm (considerando áreas equivalentes)"
+- Exemplo numérico completo
+    Para 10 pilares com diâmetro de 0,30m e altura de 3m:
+    Volume de 1 pilar = π × (0,30/2)^2 × 3 ≈ 0,212 m³  
+    Volume total = 0,212 × 10 ≈ 2,12 m³
 
 4️⃣ **PROIBIDO:**
 - Usar caracteres como {, }, |, \\text, \\frac
 - Fórmulas sem formatação adequada
 - Unidades inconsistentes ou misturadas
+
+5️⃣ **IMPORTANTE:**
+A fórmula do item 3 deve sempre funcionar diretamente no Excel. Considere que:
+- O diâmetro está em **B2**
+- A altura está em **C2**
+- A fórmula será colada na **célula B4**
+- Escreva sempre a fórmula em português e com separador decimal vírgula, como ```=PI()*(B2/2)^2*C2```
+- Sempre calcule o volume em metros cúbicos corretamente. Verifique os valores!
+
 """
 
 # === CSS PERSONALIZADO ===
@@ -221,6 +234,13 @@ with st.sidebar:
     st.markdown("- Exemplos práticos incluídos")
     
     st.divider()
+
+    st.markdown("📌 **Como usar as fórmulas:**")
+    st.markdown("""
+        - As fórmulas do item **3** da resposta podem ser copiadas direto para o Excel
+        - Cole na célula **B4**
+        - Preencha os dados em **B2** (diâmetro em metros) e **C2** (altura em metros)
+        """)
     
     st.caption("Versão 1.0 | © 2025 Coeso Cursos")
     
