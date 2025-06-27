@@ -79,10 +79,21 @@ def validar_login(email, senha):
 # === TELA DE LOGIN ===
 def login_screen():
     with st.container():
-        st.image("https://coesocursos.com.br/wp-content/uploads/2025/05/logo-e1738083192299.png", use_container_width=True)
-        st.markdown("<h2 style='text-align: center; color: #122a29;'>🔒 Acesso ao Assistente de Excel - Exclusivo para Alunos da Coeso Cursos</h2>", unsafe_allow_html=True)
+        st.markdown("""
+        <div style="text-align: center; margin-bottom: 1rem;">
+            <img src="https://coesocursos.com.br/wp-content/uploads/2025/05/logo-e1738083192299.png" 
+                 alt="Logo Coeso Cursos" style="max-width: 300px; width: 100%;">
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown(
+            "<h2 style='text-align: center; color: #122a29;'>🔒 Acesso ao Assistente de Excel - Exclusivo para Alunos da Coeso Cursos</h2>",
+            unsafe_allow_html=True
+        )
+
         email = st.text_input("Digite seu e-mail:")
         senha = st.text_input("Digite sua senha:", type="password")
+
         if st.button("Acessar"):
             if is_valid_email(email) and senha:
                 if validar_login(email, senha):
