@@ -162,23 +162,42 @@ if 'openai' not in st.secrets:
 client = OpenAI(api_key=st.secrets["openai"]["api_key"])
 
 def format_response(text):
+    # Remove caracteres indesejados
     text = re.sub(r'\{.*?\}', '', text)
     text = re.sub(r'\\[a-z]+', '', text)
+
+    # Remove duplicação de títulos (caso venham no conteúdo)
+    titles = {
+        "1.": "Explicação técnica breve",
+        "2.": "Fórmula matemática clara",
+        "3.": "Fórmula Excel aplicável",
+        "4.": "Exemplo numérico completo"
+    }
+
+    for num, title in titles.items():
+        # Remove linhas como "1. Explicação técnica breve" ou apenas "Explicação técnica breve"
+        pattern = rf"(?i)\b{num}\s*{title}\b[:：]?\s*|\b{title}\b[:：]?\s*"
+        text = re.sub(pattern, '', text)
+
+    # Divide em seções numéricas
     sections = re.split(r'(\d+\.)', text)
-    formatted = ""
+    formatted_text = ""
+
     for i in range(1, len(sections), 2):
-        num = sections[i].replace('.', '')
-        content = sections[i+1].strip()
-        if num == '1':
-            formatted += f"**1. Explicação técnica breve**\n\n{content}\n\n"
-        elif num == '2':
-            formatted += f"**2. Fórmula matemática clara**\n\n{content}\n\n"
-        elif num == '3':
-            content = re.sub(r'`(.*?)`', r'`\1`', content)
-            formatted += f"**3. Fórmula Excel aplicável**\n\n{content}\n\n"
-        elif num == '4':
-            formatted += f"**4. Exemplo numérico completo**\n\n{content}\n\n"
-    return formatted.strip()
+        section_num = sections[i].replace('.', '')
+        section_content = sections[i + 1].strip()
+
+        if section_num == '1':
+            formatted_text += f"**1. Explicação técnica breve**\n\n{section_content}\n\n"
+        elif section_num == '2':
+            formatted_text += f"**2. Fórmula matemática clara**\n\n{section_content}\n\n"
+        elif section_num == '3':
+            formatted_text += f"**3. Fórmula Excel aplicável**\n\n{section_content}\n\n"
+        elif section_num == '4':
+            formatted_text += f"**4. Exemplo numérico completo**\n\n{section_content}\n\n"
+
+    return formatted_text.strip()
+
 
 def limit_history(messages, max=10):
     if len(messages) > max + 1:
