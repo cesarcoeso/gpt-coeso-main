@@ -1,4 +1,4 @@
-# main.py com integração ao Google Drive para banco de dados compartilhado
+# main.py otimizado com SYSTEM_PROMPT e CSS externos
 
 import streamlit as st
 from openai import OpenAI
@@ -8,10 +8,11 @@ import sqlite3
 import bcrypt
 from datetime import datetime
 from drive_utils import download_db_from_drive, upload_db_to_drive  # NOVO
+from config_prompt import SYSTEM_PROMPT  # AGORA EXTERNO
 import os
 os.environ['PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION'] = 'python'
 
-# === CONFIGURAÇÃO INICIAL DA PÁGINA ===
+# === CONFIG PÁGINA ===
 st.set_page_config(
     page_title="Assistente Excel - Coeso Cursos",
     page_icon="https://coesocursos.com.br/wp-content/uploads/2025/05/cropped-favicon.png",
@@ -19,90 +20,11 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Baixa o banco de dados do Google Drive
 download_db_from_drive()  # NOVO
 
-# === CONSTANTES ===
-SYSTEM_PROMPT = """
-Você é um assistente especializado em Excel para construção civil com as seguintes regras:
-
-1️⃣ **Formação:**
-- Funções SEMPRE em português (SE, PROCV, ÍNDICE)
-- Fórmulas Excel entre ``` ``` (ex: ```=PI()*A2^2```)
-- Fórmulas matemáticas em Markdown (ex: Área = π × raio²)
-- Unidades em metros, kg, m³
-- Sempre usar vírgula como separador decimal
-
-2️⃣ **Estrutura de Resposta:**
-1. Explicação técnica breve
-2. Fórmula matemática clara
-3. Fórmula Excel aplicável
-4. Exemplo numérico completo
-
-3️⃣ **Exemplos CORRETOS:**
-- Para área: "Área = comprimento × largura → ```=B2*C2```"
-- Para volume: "Volume = π × raio² × altura → ```=PI()*B2^2*C2```"
-- Para conversão de barras: "5 barras de 10mm ≈ 8 barras de 8mm (considerando áreas equivalentes)"
-- Exemplo numérico completo
-    Para 10 pilares com diâmetro de 0,30m e altura de 3m:
-    Volume de 1 pilar = π × (0,30/2)^2 × 3 ≈ 0,212 m³  
-    Volume total = 0,212 × 10 ≈ 2,12 m³
-
-4️⃣ **PROIBIDO:**
-- Usar caracteres como {, }, |, \\text, \\frac
-- Fórmulas sem formatação adequada
-- Unidades inconsistentes ou misturadas
-
-5️⃣ **IMPORTANTE:**
-A fórmula do item 3 deve sempre funcionar diretamente no Excel. Considere que:
-- O diâmetro está em **B2**
-- A altura está em **C2**
-- A fórmula será colada na **célula B4**
-- Escreva sempre a fórmula em português e com separador decimal vírgula, como ```=PI()*(B2/2)^2*C2```
-- Sempre calcule o volume em metros cúbicos corretamente. Verifique os valores!
-
-"""
-
-# === CSS PERSONALIZADO ===
-CUSTOM_CSS = """
-<style>
-/* Gradiente vertical na sidebar */
-section[data-testid="stSidebar"] > div:first-child {
-    background: linear-gradient(to bottom, #122A29, #69BFBE);
-    color: white;
-    min-height: 100vh;
-}
-
-/* Texto branco nos elementos da sidebar */
-section[data-testid="stSidebar"] * {
-    color: white;
-}
-
-/* Fixar o chat_input na parte inferior da tela */
-div[data-testid="stChatInput"] {
-    position: fixed;
-    bottom: 0;
-    left: calc(1rem + var(--sidebar-width, 18rem));
-    right: 1rem;
-    z-index: 999;
-    background-color: white;
-    padding-bottom: 0.5rem;
-    padding-top: 0.5rem;
-}
-
-/* Responsividade: quando sidebar estiver recolhida */
-@media screen and (max-width: 1200px) {
-    div[data-testid="stChatInput"] {
-        left: 1rem !important;
-    }
-}
-
-/* Espaço extra no final para não sobrepor mensagens com o chat_input fixo */
-main > div:has(div[data-testid="stChatInput"]) {
-    padding-bottom: 6rem;
-}
-</style>
-"""
+# === CSS EXTERNO ===
+with open("custom_style.css") as f:
+    st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
 # === BANCO DE DADOS ===
 def init_db():
@@ -154,26 +76,14 @@ def validar_login(email, senha):
         return True
     return False
 
-# CSS personalizado
-st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
-
 # === TELA DE LOGIN ===
 def login_screen():
     with st.container():
-        st.markdown("""
-        <div style="text-align: center; margin-bottom: 1rem;">
-            <a href="https://www.instagram.com/coesocursos" target="_blank">
-                <img src="https://coesocursos.com.br/wp-content/uploads/2025/05/logo-e1738083192299.png" 
-                    alt="Logo Coeso Cursos" style="width: 100%; max-width: 600px;">
-            </a>
-        </div>
-        """, unsafe_allow_html=True)
+        st.image("https://coesocursos.com.br/wp-content/uploads/2025/05/logo-e1738083192299.png", use_column_width=True)
         st.markdown("<h2 style='text-align: center; color: #122a29;'>🔒 Acesso ao Assistente de Excel - Exclusivo para Alunos da Coeso Cursos</h2>", unsafe_allow_html=True)
-
-        email = st.text_input("Digite seu e-mail:", key="login_email_input")
-        senha = st.text_input("Digite sua senha:", type="password", key="login_password_input")
-
-        if st.button("Acessar", key="login_access_button"):
+        email = st.text_input("Digite seu e-mail:")
+        senha = st.text_input("Digite sua senha:", type="password")
+        if st.button("Acessar"):
             if is_valid_email(email) and senha:
                 if validar_login(email, senha):
                     update_last_login(email)
@@ -189,69 +99,44 @@ def login_screen():
 
 # === EXECUÇÃO ===
 init_db()
-
 if 'authenticated' not in st.session_state:
     st.session_state['authenticated'] = False
     st.session_state['sidebar_state'] = 'expanded'
-
 if not st.session_state['authenticated']:
     login_screen()
     st.stop()
 
-
-# === INTERFACE AUTENTICADA ===
+# === INTERFACE ===
 if 'messages' not in st.session_state:
     st.session_state.messages = [{"role": "system", "content": SYSTEM_PROMPT}]
 
 st.sidebar.markdown(f"<div style='color: white;'>**Usuário:** {st.session_state['user_email']}</div>", unsafe_allow_html=True)
-
 with st.sidebar:
+    st.image("https://coesocursos.com.br/wp-content/uploads/2025/05/logo-e1738083192299.png", width=250)
     st.markdown("""
-    <div class="sidebar-content">
-        <div style="text-align: center; margin-bottom: 20px;">
-            <a href="https://www.instagram.com/coesocursos" target="_blank">
-                <img src="https://coesocursos.com.br/wp-content/uploads/2025/05/logo-e1738083192299.png" 
-                    alt="Logo Coeso Cursos" style="width: 80%; max-width: 250px;">
-            </a>
-        </div>
-        <div style="color: white;"><strong>Assistente de Excel para Construção Civil</strong></div>
-    </div>
-    """, unsafe_allow_html=True)
+    ### ℹ️ Como usar:
+    - Pergunte sobre fórmulas, cálculos e planilhas
+    - Exemplos:
+      - `Como calcular área de laje?`
+      - `Fórmula para previsão de materiais`
+      - `Como usar PROCV em orçamentos?`
     
-    st.divider()
-    
-    st.markdown("### ℹ️ Como usar:")
-    st.markdown("- Pergunte sobre fórmulas, cálculos e planilhas")
-    st.markdown("- Exemplos:")
-    st.markdown("  - `Como calcular área de laje?`")
-    st.markdown("  - `Fórmula para previsão de materiais`")
-    st.markdown("  - `Como usar PROCV em orçamentos?`")
-    
-    st.divider()
-    
-    st.markdown("🛠️ **Dicas técnicas:**")
-    st.markdown("- Todas as fórmulas em português")
-    st.markdown("- Exemplos práticos incluídos")
-    
-    st.divider()
+    🛠️ **Dicas técnicas:**
+    - Todas as fórmulas em português
+    - Exemplos práticos incluídos
 
-    st.markdown("📌 **Como usar as fórmulas:**")
-    st.markdown("""
-        - As fórmulas do item **3** da resposta podem ser copiadas direto para o Excel
-        - Cole na célula **B4**
-        - Preencha os dados em **B2** (diâmetro em metros) e **C2** (altura em metros)
-        """)
-    
-    st.caption("Versão 1.0 | © 2025 Coeso Cursos")
-    
-    # Botões em colunas
+    📌 **Como usar as fórmulas:**
+    - As fórmulas do item **3** da resposta podem ser copiadas direto para o Excel
+    - Cole na célula **B4**
+    - Preencha os dados em **B2** (diâmetro em metros) e **C2** (altura em metros)
+    """)
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("🪟 Limpar Conversa", key="clear_chat"):
+        if st.button("🪟 Limpar Conversa"):
             st.session_state.messages = [{"role": "system", "content": SYSTEM_PROMPT}]
             st.rerun()
     with col2:
-        if st.button("🚪 Sair", key="logout"):
+        if st.button("🚪 Sair"):
             st.session_state['authenticated'] = False
             st.session_state.pop('user_email', None)
             st.rerun()
@@ -266,74 +151,63 @@ if 'openai' not in st.secrets:
 client = OpenAI(api_key=st.secrets["openai"]["api_key"])
 
 def format_response(text):
-    # Primeiro limpa caracteres indesejados
     text = re.sub(r'\{.*?\}', '', text)
     text = re.sub(r'\\[a-z]+', '', text)
-    
-    # Divide em seções
     sections = re.split(r'(\d+\.)', text)
-    formatted_text = ""
-    
+    formatted = ""
     for i in range(1, len(sections), 2):
-        section_num = sections[i].replace('.', '')
-        section_content = sections[i+1].strip()
-        
-        if section_num == '1':
-            formatted_text += f"**1. Explicação técnica breve**\n\n{section_content}\n\n"
-        elif section_num == '2':
-            formatted_text += f"**2. Fórmula matemática clara**\n\n{section_content}\n\n"
-        elif section_num == '3':
-            # Formata fórmulas Excel
-            section_content = re.sub(r'`(.*?)`', r'`\1`', section_content)
-            formatted_text += f"**3. Fórmula Excel aplicável**\n\n{section_content}\n\n"
-        elif section_num == '4':
-            formatted_text += f"**4. Exemplo numérico completo**\n\n{section_content}\n\n"
-    
-    return formatted_text.strip()
+        num = sections[i].replace('.', '')
+        content = sections[i+1].strip()
+        if num == '1':
+            formatted += f"**1. Explicação técnica breve**\n\n{content}\n\n"
+        elif num == '2':
+            formatted += f"**2. Fórmula matemática clara**\n\n{content}\n\n"
+        elif num == '3':
+            content = re.sub(r'`(.*?)`', r'`\1`', content)
+            formatted += f"**3. Fórmula Excel aplicável**\n\n{content}\n\n"
+        elif num == '4':
+            formatted += f"**4. Exemplo numérico completo**\n\n{content}\n\n"
+    return formatted.strip()
 
-def limit_message_history(messages, max_messages=10):
-    if len(messages) > max_messages + 1:
-        return [messages[0]] + messages[-(max_messages):]
+def limit_history(messages, max=10):
+    if len(messages) > max + 1:
+        return [messages[0]] + messages[-max:]
     return messages
 
-if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+for msg in st.session_state.messages:
+    if msg["role"] != "system":
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"], unsafe_allow_html=True)
 
-for message in st.session_state.messages:
-    if message["role"] != "system":
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"], unsafe_allow_html=True)
+if prompt := st.chat_input("Digite sua dúvida sobre Excel para construção civil..."):
+    with st.chat_message("user"):
+        st.markdown(prompt)
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    st.session_state.messages = limit_history(st.session_state.messages)
 
-with st.container():
-    if prompt := st.chat_input("Digite sua dúvida sobre Excel para construção civil...", key="chat_input"):
-        with st.chat_message("user"):
-            st.markdown(prompt)
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        st.session_state.messages = limit_message_history(st.session_state.messages)
-        with st.chat_message("assistant"):
-            try:
-                with st.spinner('Processando sua pergunta...'):
-                    response = client.chat.completions.create(
-                        model="gpt-3.5-turbo",
-                        messages=st.session_state.messages,
-                        temperature=0.7,
-                        max_tokens=600
-                    )
-                    assistant_response = response.choices[0].message.content
-                    assistant_response = re.sub(r'\{.*?\}', '', assistant_response)
-                    assistant_response = re.sub(r'\\[a-z]+', '', assistant_response)
-                    formatted_response = format_response(assistant_response)
-                    message_placeholder = st.empty()
-                    full_response = ""
-                    paragraphs = formatted_response.split('\n\n')
-                    for paragraph in paragraphs:
-                        if paragraph.strip():
-                            full_response += paragraph + "\n\n"
-                            message_placeholder.markdown(full_response + "▌", unsafe_allow_html=True)
-                            time.sleep(0.2)
-                    message_placeholder.markdown(full_response, unsafe_allow_html=True)
-                st.session_state.messages.append({"role": "assistant", "content": formatted_response})
-            except Exception:
-                error_msg = "⚠️ Ocorreu um erro ao processar sua pergunta. Por favor, tente novamente."
-                st.error(error_msg)
-                st.session_state.messages.append({"role": "assistant", "content": error_msg})
+    with st.chat_message("assistant"):
+        try:
+            with st.spinner('Processando sua pergunta...'):
+                response = client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=st.session_state.messages,
+                    temperature=0.7,
+                    max_tokens=600
+                )
+                content = response.choices[0].message.content
+                content = re.sub(r'\{.*?\}', '', content)
+                content = re.sub(r'\\[a-z]+', '', content)
+                formatted = format_response(content)
+                msg_box = st.empty()
+                full_resp = ""
+                for para in formatted.split('\n\n'):
+                    if para.strip():
+                        full_resp += para + "\n\n"
+                        msg_box.markdown(full_resp + "▌", unsafe_allow_html=True)
+                        time.sleep(0.2)
+                msg_box.markdown(full_resp, unsafe_allow_html=True)
+            st.session_state.messages.append({"role": "assistant", "content": formatted})
+        except Exception:
+            err = "⚠️ Ocorreu um erro ao processar sua pergunta. Por favor, tente novamente."
+            st.error(err)
+            st.session_state.messages.append({"role": "assistant", "content": err})
