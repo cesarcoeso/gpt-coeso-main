@@ -166,14 +166,6 @@ def format_response(text):
     text = re.sub(r'\{.*?\}', '', text)
     text = re.sub(r'\\[a-z]+', '', text)
 
-    # Remove duplicação de títulos (caso venham no conteúdo)
-    titles = {
-        "1.": "Explicação técnica breve",
-        "2.": "Fórmula matemática clara",
-        "3.": "Fórmula Excel aplicável",
-        "4.": "Exemplo numérico completo"
-    }
-
     for num, title in titles.items():
         # Remove linhas como "1. Explicação técnica breve" ou apenas "Explicação técnica breve"
         pattern = rf"(?i)\b{num}\s*{title}\b[:：]?\s*|\b{title}\b[:：]?\s*"
