@@ -53,7 +53,41 @@ Você é um assistente especializado em Excel para construção civil com as seg
 # === CSS PERSONALIZADO ===
 CUSTOM_CSS = """
 <style>
+/* Gradiente vertical na sidebar */
+section[data-testid="stSidebar"] > div:first-child {
+    background: linear-gradient(to bottom, #122A29, #69BFBE);
+    color: white;
+    min-height: 100vh;
+}
 
+/* Texto branco nos elementos da sidebar */
+section[data-testid="stSidebar"] * {
+    color: white;
+}
+
+/* Fixar o chat_input na parte inferior da tela */
+div[data-testid="stChatInput"] {
+    position: fixed;
+    bottom: 0;
+    left: calc(1rem + var(--sidebar-width, 18rem));
+    right: 1rem;
+    z-index: 999;
+    background-color: white;
+    padding-bottom: 0.5rem;
+    padding-top: 0.5rem;
+}
+
+/* Responsividade: quando sidebar estiver recolhida */
+@media screen and (max-width: 1200px) {
+    div[data-testid="stChatInput"] {
+        left: 1rem !important;
+    }
+}
+
+/* Espaço extra no final para não sobrepor mensagens com o chat_input fixo */
+main > div:has(div[data-testid="stChatInput"]) {
+    padding-bottom: 6rem;
+}
 </style>
 """
 
