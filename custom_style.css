@@ -33,3 +33,8 @@ div[data-testid="stChatInput"] {
 main > div:has(div[data-testid="stChatInput"]) {
     padding-bottom: 6rem;
 }
+
+/* Reduzir tamanho da fonte da sidebar em 75% */
+[data-testid="stSidebar"] * {
+    font-size: 75% !important;
+}
